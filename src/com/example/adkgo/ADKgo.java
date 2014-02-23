@@ -43,6 +43,7 @@ public class ADKgo extends Activity {
 
     private TextView outputTouchPoint;
     private TextView outputMotorCommand;
+    private TextView outputPolar;
     private Controller controller; 
     
 	/** Called when the activity is first created. */
@@ -61,6 +62,7 @@ public class ADKgo extends Activity {
 		
 		outputTouchPoint = (TextView) findViewById(R.id.output_touch_coords);
 		outputMotorCommand = (TextView) findViewById(R.id.output_motor_commands);
+		outputPolar = (TextView) findViewById(R.id.output_polar);
 
 		controller = (Controller) findViewById(R.id.controller);  
 		controller.setOnTouchListener(new OnTouchListener(){
@@ -76,8 +78,12 @@ public class ADKgo extends Activity {
 				}
 				outputTouchPoint.setText("Touch - X: "+controller.touchPoint.x+"; Y: "+controller.touchPoint.y);
 				
-				Point motorCommand = getMotorSpeeds(controller.calcPolar());
+				PointF motorPolar = controller.calcPolar();
 				
+				outputPolar.setText("Motor R: "+motorPolar.x+"; Motor Theta: "+motorPolar.y);
+				
+				Point motorCommand = getMotorSpeeds(motorPolar);
+								
 				outputMotorCommand.setText("Right Motor "+motorCommand.x+"%; Left Motor "+motorCommand.y+"%.");
 								
 				sendRCMotorCommand(motorCommand);
@@ -213,8 +219,8 @@ public class ADKgo extends Activity {
 		else if(rScale > -2 * thetaScale + 2)
 			rScale = -2 * thetaScale + 2; 			
 				
-		// sit still at home (in polar coords, when r=0, theta is undefined)
-		if(rScale == 0){
+		// sit still at home 
+		if(rScale == 0 && thetaScale == 0){
 			return new Point(0,0);
 		}
 		
