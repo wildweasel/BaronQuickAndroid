@@ -39,7 +39,7 @@ public class ADKgo extends Activity {
 	private FileInputStream mInputStream;
 	private FileOutputStream mOutputStream;
 	 
-    private static final byte COMMAND_START = -0x1; 
+    private static final byte COMMAND_START = -0x2; 
 
     private TextView outputTouchPoint;
     private TextView outputMotorCommand;
