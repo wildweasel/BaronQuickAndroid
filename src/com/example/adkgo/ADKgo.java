@@ -218,7 +218,14 @@ public class ADKgo extends Activity {
 		// Too much right motor
 		else if(rScale > -2 * thetaScale + 2)
 			rScale = -2 * thetaScale + 2; 			
-				
+
+		// Too much right motor in reverse
+		if(rScale < -2 * thetaScale)
+			rScale = -2 * thetaScale;
+		// Too much left motor in reverse
+		else if(rScale < 2 * thetaScale - 2)
+			rScale = 2 * thetaScale - 2;
+			
 		// sit still at home 
 		if(rScale == 0 && thetaScale == 0){
 			return new Point(0,0);

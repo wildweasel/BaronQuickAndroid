@@ -77,10 +77,23 @@ public class Controller extends View {
 		
 		// Account for the expanded y-axis
 		deltaXTouch = (float) (Math.signum(deltaXTouch) * Math.max(0, Math.abs(deltaXTouch)-radius*.15));
+
+		// To make a bit more sense practically, let's just mirror the bottom half of the guide
+		// to the top.  We'll take the absolute value of the angular velocity and reverse the 
+		// sign of the linear velocity.  This could have got weird, but because of the limitations
+		// of the real world motors, it makes sense.  When the touch is near the x-axis (i.e. 
+		// it's time to 'flip') the angular velocity will be high (or negative of high), and
+		// we're limited in how much linear velocity we can have (none when we're sitting on 
+		// the x-axis) - so flipping it's sign won't have much actual practical effect
+		boolean flipRadius = false;
+		if(deltaYTouch < 0){
+			deltaYTouch = -deltaYTouch;
+			flipRadius = true;
+		}
 		
 		// Convert the touch point to polar coordinates
 		double rTouch = Math.sqrt(deltaXTouch*deltaXTouch + deltaYTouch*deltaYTouch);
-		double thetaTouch = Math.atan2(deltaYTouch, deltaXTouch);
+		double thetaTouch = Math.atan2(deltaYTouch, deltaXTouch);	
 		
 		// Account for the expanded polar origin
 		rTouch = Math.max(0, rTouch-innerRadius);
@@ -89,13 +102,16 @@ public class Controller extends View {
 		thetaTouch -= Math.PI/2;
 
 		// saturate r to max out at the circle radius (clicks outside get snapped back)
-		rTouch = Math.min(rTouch, radius - innerRadius);
+		rTouch = Math.min(rTouch, radius - innerRadius);		
 		
 		// scale r from 0-deltaradius to 0-1
 		float rScale = (float) (rTouch / (radius - innerRadius));
 		
 		// scale theta from -Pi/2:Pi/2 to 0-1
 		float thetaScale = (float) (thetaTouch/Math.PI + .5);
+		
+		if(flipRadius)
+			rScale = -rScale;
 
 		return new PointF(rScale, thetaScale);		
 	}
