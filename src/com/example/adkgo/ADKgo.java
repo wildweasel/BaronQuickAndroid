@@ -1,68 +1,103 @@
 package com.example.adkgo;
 
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-import com.android.future.usb.UsbAccessory;
-import com.android.future.usb.UsbManager;
+import com.example.adkgo.SensorDisplayView.SensorType;
 
 import android.os.Bundle;
-import android.os.ParcelFileDescriptor;
+import android.os.Handler;
+import android.os.Message;
 import android.app.Activity;
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
-import android.view.ViewGroup.LayoutParams;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class ADKgo extends Activity {
 	
+	// Don't want a leaky handler
+	private static class SensorHandler extends Handler{
+		private final WeakReference<ADKgo> mADKgo;
+		
+		public SensorHandler(ADKgo adkgo){
+			mADKgo = new WeakReference<ADKgo>(adkgo);
+		}
+		
+		@Override
+		public void handleMessage(Message msg){
+			ADKgo adkgo = mADKgo.get();
+			if(adkgo != null){
+				byte message[] = msg.getData().getByteArray("data");
+
+				// parse message
+				if(message[0] == OUTPUT_IR){
+					
+					int leftValue = message[1] & 0x000000FF;
+					int leftCenterValue = message[2] & 0x000000FF;
+					int centerValue = message[3] & 0x000000FF;
+					int rightCenterValue = message[4] & 0x000000FF;
+					int rightValue = message[5] & 0x000000FF;
+					
+					Log.w("ADKgo sensorHandler", leftValue+", "+leftCenterValue+", "+centerValue+", "+rightCenterValue+", "+rightValue);
+					
+					adkgo.sensorDisplayView.setValue(SensorType.LEFT_IR, leftValue);
+					adkgo.sensorDisplayView.setValue(SensorType.LEFT_CENTER_IR, leftCenterValue);
+					adkgo.sensorDisplayView.setValue(SensorType.CENTER_IR, centerValue);
+					adkgo.sensorDisplayView.setValue(SensorType.RIGHT_CENTER_IR, rightCenterValue);
+					adkgo.sensorDisplayView.setValue(SensorType.RIGHT_IR, rightValue);
+
+					adkgo.sensorDisplayView.invalidate();
+					
+				}
+				if(message[0] == OUTPUT_WE){
+					//adkgo.outputMotorCommand.setText(message[1]+", "+message[2]);
+					adkgo.sensorDisplayView.setLeftEncoderState((message[1] & 0x00000002) == 0, (message[2] & 0x00000002) != 0);
+					adkgo.sensorDisplayView.setRightEncoderState((message[1] & 0x00000001) == 0, (message[2] & 0x00000001) != 0);
+					
+					
+				}
+			}
+		}
+	}
+	
 	private static final String TAG = ADKgo.class.getSimpleName();
-
-	private PendingIntent mPermissionIntent;
-	private static final String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
-	private boolean mPermissionRequestPending;
-
-	private UsbManager mUsbManager;
-	private UsbAccessory mAccessory;
-	private ParcelFileDescriptor mFileDescriptor;
-	private FileInputStream mInputStream;
-	private FileOutputStream mOutputStream;
+	
+	// Message types
+	private static final int OUTPUT_IR = -3;
+	private static final int OUTPUT_WE = -4;
+	
+	private ArduinoControl arduinoControl;
 	 
     private static final byte COMMAND_START = -0x2; 
 
-    private TextView outputTouchPoint;
     private TextView outputMotorCommand;
-    private TextView outputPolar;
     private Controller controller; 
+    private SensorDisplayView sensorDisplayView;
+        
+    Handler sensorDataHandler;
     
-	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-
-		mUsbManager = UsbManager.getInstance(this);
-		mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(
-				ACTION_USB_PERMISSION), 0);
-		IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-		filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED);
-		registerReceiver(mUsbReceiver, filter);
-
+		
 		setContentView(R.layout.activity_adkgo);
 		
-		outputTouchPoint = (TextView) findViewById(R.id.output_touch_coords);
 		outputMotorCommand = (TextView) findViewById(R.id.output_motor_commands);
-		outputPolar = (TextView) findViewById(R.id.output_polar);
+		
+		sensorDisplayView = (SensorDisplayView) findViewById(R.id.sensor_display_view);
+		sensorDisplayView.setMaxMin(255, 0);
+		sensorDisplayView.setValue(SensorType.LEFT_IR, 0);
+		sensorDisplayView.setValue(SensorType.LEFT_CENTER_IR, 30);
+		sensorDisplayView.setValue(SensorType.CENTER_IR, 63);
+		sensorDisplayView.setValue(SensorType.RIGHT_CENTER_IR, 96);
+		sensorDisplayView.setValue(SensorType.RIGHT_IR, 127);
 
 		controller = (Controller) findViewById(R.id.controller);  
 		controller.setOnTouchListener(new OnTouchListener(){
@@ -76,118 +111,37 @@ public class ADKgo extends Activity {
 				else{
 					controller.goHome();
 				}
-				outputTouchPoint.setText("Touch - X: "+controller.touchPoint.x+"; Y: "+controller.touchPoint.y);
-				
-				PointF motorPolar = controller.calcPolar();
-				
-				outputPolar.setText("Motor R: "+motorPolar.x+"; Motor Theta: "+motorPolar.y);
-				
-				Point motorCommand = getMotorSpeeds(motorPolar);
-								
-				outputMotorCommand.setText("Right Motor "+motorCommand.x+"%; Left Motor "+motorCommand.y+"%.");
-								
+				Point motorCommand = getMotorSpeeds(controller.calcPolar());								
+				outputMotorCommand.setText("Right Motor "+motorCommand.x+"%;\n Left Motor "+motorCommand.y+"%.");								
 				sendRCMotorCommand(motorCommand);
-
 				return true;
 			}});
+		
+		sensorDataHandler = new SensorHandler(this);
+		arduinoControl = new ArduinoControl(this, sensorDataHandler);	
+		
+		
     }
 
-	/**
-	 * Called when the activity is resumed from its paused state and immediately
-	 * after onCreate().
-	 */
 	@Override
 	public void onResume() {
 		super.onResume();
-//		controller.setup();
-		if (mInputStream != null && mOutputStream != null) {
-			return;
-		}
-
-		UsbAccessory[] accessories = mUsbManager.getAccessoryList();
-		UsbAccessory accessory = (accessories == null ? null : accessories[0]);
-		if (accessory != null) {
-			if (mUsbManager.hasPermission(accessory)) {
-				openAccessory(accessory);
-			} else {
-				synchronized (mUsbReceiver) {
-					if (!mPermissionRequestPending) {
-						mUsbManager.requestPermission(accessory,
-								mPermissionIntent);
-						mPermissionRequestPending = true;
-					}
-				}
-			}
-		} else {
-			Log.d(TAG, "mAccessory is null");
-		}
+		
+		arduinoControl.resume();
 	}
 
-	/** Called when the activity is paused by the system. */
 	@Override
 	public void onPause() {
 		super.onPause();
-		closeAccessory();
+		Toast.makeText(this, "onPause()", Toast.LENGTH_SHORT).show();
+		arduinoControl.pause();
 	}
 
-	/**
-	 * Called when the activity is no longer needed prior to being removed from
-	 * the activity stack.
-	 */
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
-		unregisterReceiver(mUsbReceiver);
-	}
-    
-	private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
-		@Override
-		public void onReceive(Context context, Intent intent) {
-			String action = intent.getAction();
-			if (ACTION_USB_PERMISSION.equals(action)) {
-				synchronized (this) {
-					UsbAccessory accessory = UsbManager.getAccessory(intent);
-					if (intent.getBooleanExtra(
-							UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-						openAccessory(accessory);
-					} else {
-						Log.d(TAG, "permission denied for accessory "
-								+ accessory);
-					}
-					mPermissionRequestPending = false;
-				}
-			} else if (UsbManager.ACTION_USB_ACCESSORY_DETACHED.equals(action)) {
-				UsbAccessory accessory = UsbManager.getAccessory(intent);
-				if (accessory != null && accessory.equals(mAccessory)) {
-					closeAccessory();
-				}
-			}
-		}
-	};
-
-    private void openAccessory(UsbAccessory accessory) { 
-        mFileDescriptor = mUsbManager.openAccessory(accessory); 
-        if (mFileDescriptor != null) { 
-            mAccessory = accessory; 
-            FileDescriptor fd = mFileDescriptor.getFileDescriptor(); 
-            mInputStream = new FileInputStream(fd); 
-            mOutputStream = new FileOutputStream(fd); 
-            Log.d(TAG, "accessory opened"); 
-        } else { 
-            Log.d(TAG, "accessory open fail"); 
-        } 
-    } 
-
-	private void closeAccessory() {
-		try {
-			if (mFileDescriptor != null) {
-				mFileDescriptor.close();
-			}
-		} catch (IOException e) {
-		} finally {
-			mFileDescriptor = null;
-			mAccessory = null;
-		}
+		Toast.makeText(this, "onDestroy()", Toast.LENGTH_SHORT).show();
+		arduinoControl.destroy();
 	}
 
     public void sendRCMotorCommand(Point speeds) { 
@@ -198,13 +152,7 @@ public class ADKgo extends Activity {
         
         Log.e("Output Sent Command", "Right motor "+buffer[1]+"%, Left motor "+buffer[2]+"%.");
 
-        if (mOutputStream != null) { 
-            try { 
-                mOutputStream.write(buffer); 
-            } catch (IOException e) { 
-                Log.e(TAG, "write failed", e); 
-            } 
-        } 
+        arduinoControl.sendMessage(buffer); 
     } 
     
     // Return motor speeds (RIGHT, LEFT)

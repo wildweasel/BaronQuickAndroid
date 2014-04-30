@@ -20,22 +20,18 @@
 	    android:paddingRight="@dimen/activity_horizontal_margin"
 	    android:paddingTop="@dimen/activity_vertical_margin"
 	    tools:context=".ADKgo" >
-    	    
-        <TextView
-    	    android:id="@+id/output_touch_coords"
-    	    android:text="Nothing yet"
-    	    android:layout_width="match_parent"
-    	    android:layout_height="wrap_content" />
-        <TextView
-    	    android:id="@+id/output_polar"
-    	    android:text="Nothing yet"
-    	    android:layout_width="match_parent"
-    	    android:layout_height="wrap_content" />
+
         <TextView
     	    android:id="@+id/output_motor_commands"
-    	    android:text="Nothing yet"
+    	    android:text="Nothing yet\n"
     	    android:layout_width="match_parent"
     	    android:layout_height="wrap_content" />
+
+        <com.example.adkgo.SensorDisplayView
+            android:id="@+id/sensor_display_view"
+            android:layout_width="match_parent"
+    	    android:layout_height="wrap_content"
+            />
        
 	</LinearLayout>     
     
