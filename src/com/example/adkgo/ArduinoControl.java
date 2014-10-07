@@ -202,25 +202,58 @@ public class ArduinoControl{
 		@Override
 		public void run() {
 			int ret = 0;
-			byte buffer[] = new byte[6];
+			int i;
+			byte buffer[] = new byte[16];
 
 			while(ret >= 0){
 
 				// This blocks until it can read
 				try {
-					inputStream.read(buffer, 0, 6);
-					Bundle bundle = new Bundle();
-					bundle.putByteArray("data", buffer);	
-					Message message = inputHandler.obtainMessage();
-					message.setData(bundle);
-					inputHandler.sendMessage(message);
-					
-				} catch (IOException e) {
+					ret = inputStream.read(buffer);
+					Log.e(TAG, "read "+ret+" bytes");
+				} 
+				catch (IOException e) {
 	                Log.e(TAG, "read failed", e); 
 					e.printStackTrace();
 				}
+				i = 0;
+				while(ret > i){
+					int len = ret-i;
+					switch(buffer[i]){
+					case ADKgo.OUTPUT_IR:
+						if(len > 5){
+							Log.e(TAG, String.format("Incoming Message %d %d %d %d %d %d", buffer[i], buffer[i+1], buffer[i+2], buffer[i+3], buffer[i+4], buffer[i+5]));
+							byte outBuff[] = {buffer[i], buffer[i+1], buffer[i+2], buffer[i+3], buffer[i+4], buffer[i+5]};
+							send(outBuff);
+						}
+						i += 6;						
+						break;
+					case ADKgo.OUTPUT_WE:
+						if(len > 2){
+							Log.e(TAG, String.format("Incoming Message %d %d %d", buffer[i], buffer[i+1], buffer[i+2]));
+							byte outBuff[] = {buffer[i], buffer[i+1], buffer[i+2]};
+							send(outBuff);
+						}
+						i += 3;						
+						break;
+					default:
+						Log.e(TAG, String.format("Junk Byte: %d", buffer[i]));
+						i++;
+						break;
+					}
+
+				}
+				
 				
 			}
+		}
+		
+		private void send(byte[] buffer){
+			Bundle bundle = new Bundle();
+			bundle.putByteArray("data", buffer);	
+			Message message = inputHandler.obtainMessage();
+			message.setData(bundle);
+			inputHandler.sendMessage(message);
 		}
 	}
 }

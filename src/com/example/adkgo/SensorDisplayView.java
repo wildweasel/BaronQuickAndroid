@@ -118,6 +118,18 @@ public class SensorDisplayView extends View {
 		this.rightEncoderColor.setColor(color);
 	}
 	
+	public void setLeftEncoderState(byte in){
+		int color = ((int)in)*2 << 24 + 255;
+		Log.e("SensorDisplayView", "Left in: "+in+"; Left Color amt: "+color);
+		this.leftEncoderColor.setColor(color);
+	}
+	
+	public void setRightEncoderState(byte in){
+		int color = ((int)in)*2 << 24 + 255;
+			Log.e("SensorDisplayView", "Right in: "+in+"; Right Color amt: "+color);
+		this.rightEncoderColor.setColor(color);
+	}
+	
 	@Override
 	protected void onDraw(Canvas canvas){
 		super.onDraw(canvas);

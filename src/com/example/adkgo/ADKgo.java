@@ -58,10 +58,10 @@ public class ADKgo extends Activity {
 				}
 				if(message[0] == OUTPUT_WE){
 					//adkgo.outputMotorCommand.setText(message[1]+", "+message[2]);
-					adkgo.sensorDisplayView.setLeftEncoderState((message[1] & 0x00000002) == 0, (message[2] & 0x00000002) != 0);
-					adkgo.sensorDisplayView.setRightEncoderState((message[1] & 0x00000001) == 0, (message[2] & 0x00000001) != 0);
-					
-					
+					//adkgo.sensorDisplayView.setLeftEncoderState((message[1] & 0x00000002) == 0, (message[2] & 0x00000002) != 0);
+					//adkgo.sensorDisplayView.setRightEncoderState((message[1] & 0x00000001) == 0, (message[2] & 0x00000001) != 0);
+					adkgo.sensorDisplayView.setLeftEncoderState(message[1]);
+					adkgo.sensorDisplayView.setRightEncoderState(message[2]);
 				}
 			}
 		}
@@ -70,8 +70,8 @@ public class ADKgo extends Activity {
 	private static final String TAG = ADKgo.class.getSimpleName();
 	
 	// Message types
-	private static final int OUTPUT_IR = -3;
-	private static final int OUTPUT_WE = -4;
+	public static final int OUTPUT_IR = -126;
+	public static final int OUTPUT_WE = -127;
 	
 	private ArduinoControl arduinoControl;
 	 
